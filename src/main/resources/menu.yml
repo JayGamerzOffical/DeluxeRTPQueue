@@ -1,0 +1,16 @@
+title: "      &8ᴅᴇʟᴜxᴇʀᴛᴘ ǫᴜᴇᴜᴇ"
+background:
+  material: "GRAY_STAINED_GLASS_PANE"
+  name: " "
+  lore: []
+center-item-0:
+  material: "ENDER_PEARL"
+  name: "&ʙᴊᴏɪɴ ǫᴜᴇᴜᴇ"
+  lore:
+    - "&7ᴄʟɪᴄᴋ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ǫᴜᴇᴜᴇ"
+center-item-1:
+  material: "NETHER_STAR"
+  name: "&ʙᴊᴏɪɴ ǫᴜᴇᴜᴇ"
+  lore:
+    - "&7ᴄʟɪᴄᴋ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ǫᴜᴇᴜᴇ"
+    - "&7ᴘʟᴀʏᴇʀ ɪɴ ǫᴜᴇᴜᴇ: %rtpqueue_player%"
