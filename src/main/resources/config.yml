@@ -18,7 +18,6 @@ rtp_enabled_worlds: [ "world", "world_nether", "world_the_end" ]
 # Radius
 radius: 1000
 
-
 # Enables smaller texts.
 small-text-enabled: true
 
