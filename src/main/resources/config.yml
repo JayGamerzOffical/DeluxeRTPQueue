@@ -1,34 +1,54 @@
-# RTPQueue Configuration
-default_world: world
+#########################################################################################
+#                                                                                       #
+# DeluxeRTPQueue, a free resource by Swagger Studio @                                   #
+#                                                                                       #
+# Support: https://minecraftinfinity.com/discord                                        #
+# Tutorial: Coming very Soon at YT https://bit.ly/kanhaiyaswagger                       #
+# Sponsored by: https://swagger.cloud/ BEST Hosting + User Friendly + Trustable         #
+#                                                                                       #
+# You are editing the config.yml file of DeluxeRTPQueue.                                #
+#                                                                                       #
+#########################################################################################
+# Enable or disable debug logging (set to true to see detailed logs in console)
+debug: false
 
-messages:
-  prefix: "&e[RTP Queue] &7 >> "
-  join_queue: "&aYou have joined the RTP queue."
-  leave_queue: "&cYou have left the RTP queue."
-  config_reloaded: "&eConfiguration reloaded."
-  teleport_success: "&6Teleported successfully!"
-  action_bar_join_message: "&a&lIN QUEUE"
-  action_bar_leave_message: "&c&lLEFT QUEUE"
-  action_bar_teleport_message: "&6&lTELEPORTED!"
-  queue_announcement: "&e%player% is looking for a 1v1! &a&l[CLICK TO JOIN]"
-  queue_full: "&cQueue is full! Try again later."
-  teleport_countdown: "&eTeleporting in %time% seconds!"
-  already_queue: "&aYou are already in the queue!"
+# List of worlds where Random Teleport (RTP) is enabled
+rtp_enabled_worlds: [ "world", "world_nether", "world_the_end" ]
 
-sounds:
-  teleport: "ENTITY_ENDERMAN_TELEPORT"
-  volume: 1.0
-  pitch: 1.0
+# Radius
+radius: 1000
 
-teleport:
-  max_attempts: 5
-  min_x: -1000
-  max_x: 1000
-  min_z: -1000
-  max_z: 1000
+# Enables smaller texts.
+small-text-enabled: true
 
-safe_location_checks:
-  - GRASS_BLOCK
-  - DIRT
-  - STONE
-  - COBBLESTONE
+# The item used to trigger world selection (can be any valid Material)
+selection-item: "SHEARS"
+
+# Whether action bar messages are shown during teleport process
+action-bar-enabled: true
+
+# Enables levitation effect during RTP teleport animation
+levitation-effect-enabled: true
+
+# Duration of the levitation effect in seconds
+levitation-effect-duration: 5
+
+# Minimum distance from other players where the player should be teleported
+spawn-spacing: 5
+
+# Radius (in blocks) of the safe search area around the target teleport location
+circle-radius: 10
+
+# Strength of the levitation effect (0 = Levitation I)
+levitation-effect-amplifier: 0
+
+# If true, teleport target will be adjusted to face a safe/flat direction
+adjust-face: true
+
+# Enable or disable sound effects when teleporting
+sounds-enabled: true
+
+# List of blocks that are not allowed at or near the teleport destination
+restricted-blocks:
+  - WATER
+  - LAVA

@@ -4,17 +4,14 @@ main: org.JayGamerz.DeluxeRTPQueue
 api-version: '1.13'
 prefix: DeluxeRTPQueue
 authors: [ JAY GAMERZ ]
-description: DeluxeRTPQueue Plus is minecraft Free for All plugin.
+description: DeluxeRTPQueue is minecraft plugin that allows players to join a random teleport queue and teleport to a random location.
 website: https://www.youtube.com/@jaygamerz
 commands:
   rtpqueue:
     description: Manage the random teleport queue
     usage: /rtpqueue [join|leave|gui]
     permission: deluxertpqueue.use
-  rtpreload:
-    description: Reload the plugin configuration
-    usage: /rtpreload
-    permission: deluxertpqueue.reload
+
 permissions:
   deluxertpqueue.use:
     description: Allows use of the rtpqueue command
@@ -28,6 +25,6 @@ permissions:
   deluxertpqueue.gui:
     description: Allows opening the RTP queue GUI
     default: true
-  deluxertpqueue.reload:
-    description: Allows reloading the plugin configuration
+  deluxertpqueue.admin:
+    description: Allows all permissions for admins for DeluxeRTPQueue plugin
     default: op

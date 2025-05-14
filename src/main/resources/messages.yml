@@ -1,0 +1,53 @@
+#########################################################################################
+#                                                                                       #
+# DeluxeRTPQueue, a free resource by Swagger Studio @                                   #
+#                                                                                       #
+# Support: https://minecraftinfinity.com/discord                                        #
+# Tutorial: Coming very Soon at YT https://bit.ly/kanhaiyaswagger                       #
+# Sponsored by: https://swagger.cloud/ BEST Hosting + User Friendly + Trustable         #
+#                                                                                       #
+# You are editing the messages.yml file of DeluxeRTPQueue.                              #
+#                                                                                       #
+#########################################################################################
+prefix: "[&#f404b1R&#ea09b3T&#df0db6P &#d411b9Q&#c915bbu&#bf1abee&#b41ec1u&#a922c3e] &r >> "
+messages:
+  join_queue: "&aYou have joined the RTP queue."
+  join_queue_time: "&aYou have joined the RTP queue. %time%"
+  leave_queue: "&cYou have left the RTP queue."
+  config_reloaded: "&eConfiguration reloaded."
+  teleport_success: "&6Teleported successfully!"
+  action_bar_join_message: "&a&lIN QUEUE"
+  action_bar_leave_message: "&c&lLEFT QUEUE"
+  action_bar_teleport_message: "&6&lTELEPORTED!"
+  teleport_countdown: "&eTeleporting in %time% seconds!"
+  already_queue: "&aYou are already in the queue!"
+  player_already_queue: "&a%player% is already in the queue!"
+  not_in_queue: "&aYou are not in the queue!"
+  noLocationFound: "&cNo safe location found!"
+  teleportError: "&cNo safe location found!"
+  teleportMessage: "&cSuccessfully teleported!"
+  usage: "&cUsage: /rtpqueue <join|leave|gui>"
+  usage_admin: "&cAdmin Usage: /rtpqueue <join|leave|gui|clearselection|queuearea|reload>"
+  queuearea_set: "&aQueue area successfully set: %area%"
+  area_not_found: "&cArea %area% not found!"
+  area_removed: "&aArea %area% removed!"
+  teleported_to_area: "&6Teleported to area %area%"
+  first_pos_selected: "&6First position selected!"
+  second_pos_selected: "&6Second position selected!"
+  selection_cleared: "&aSelection cleared!"
+  players_only: "&cOnly players can use this command!"
+  queuearea_add_usage: "&cUsage: /rtpqueue queuearea add <name> <time>"
+  queuearea_remove_usage: "&cUsage: /rtpqueue queuearea remove <name>"
+  queuearea_teleport_usage: "&cUsage: /rtpqueue queuearea teleport <name>"
+  first_pos_select: "&cPlease select both positions first using your wand or commands."
+  gui_opened_to_player: "&aGUI opened to player %player%"
+  gui_usage: "&cUsage: /rtpqueue admin gui <name>"
+  player_not_found: "&c%player% not found!"
+  player_not_online: "&c%player% is not currently online!"
+  player_added_to_queue: "&a%player% added to queue!"
+  player_removed_from_queue: "&a%player% removed from queue!"
+  gui_open: "&aOpening RTP Queue GUI..."
+  add_player_usage: "&cUsage: /rtpqueue admin add <player> <world>"
+  remove_player_usage: "&cUsage: /rtpqueue admin remove <player>"
+  world_not_found: "&c%world% not found!"
+  world_not_enabled: "&c%world% is not an enabled world for RTP Queue!"

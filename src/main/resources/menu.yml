@@ -1,16 +1,51 @@
-title: "      &8ᴅᴇʟᴜxᴇʀᴛᴘ ǫᴜᴇᴜᴇ"
+#########################################################################################
+#                                                                                       #
+# DeluxeRTPQueue, a free resource by Swagger Studio @                                   #
+#                                                                                       #
+# Support: https://minecraftinfinity.com/discord                                        #
+# Tutorial: Coming very Soon at YT https://bit.ly/kanhaiyaswagger                       #
+# Sponsored by: https://swagger.cloud/ BEST Hosting + User Friendly + Trustable         #
+#                                                                                       #
+# You are editing the menu.yml file of DeluxeRTPQueue.                                  #
+#                                                                                       #
+#########################################################################################
+# GUI title displayed at the top of the RTP world selection menu
+title: "&8» &aSelect an RTP World"
+
+# Background item for all empty GUI slots
 background:
-  material: "GRAY_STAINED_GLASS_PANE"
-  name: " "
-  lore: []
-center-item-0:
-  material: "ENDER_PEARL"
-  name: "&ʙᴊᴏɪɴ ǫᴜᴇᴜᴇ"
-  lore:
-    - "&7ᴄʟɪᴄᴋ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ǫᴜᴇᴜᴇ"
-center-item-1:
-  material: "NETHER_STAR"
-  name: "&ʙᴊᴏɪɴ ǫᴜᴇᴜᴇ"
-  lore:
-    - "&7ᴄʟɪᴄᴋ ᴛᴏ ᴊᴏɪɴ ᴛʜᴇ ǫᴜᴇᴜᴇ"
-    - "&7ᴘʟᴀʏᴇʀ ɪɴ ǫᴜᴇᴜᴇ: %rtpqueue_player%"
+  material: "GRAY_STAINED_GLASS_PANE"  # The type of item used as filler in lower versions it will use default item.
+  name: " "                             # Name is intentionally empty (blank display name)
+  lore: [ ]                             # No lore shown for background items
+
+# List of available worlds for Random Teleport (RTP)
+worlds:
+  world:
+    slot: 11                           # Slot in the GUI where this world option appears
+    material: "GRASS_BLOCK"           # Item icon shown for the Overworld
+    name: "&aOverworld"               # Display name of the Overworld option
+    lore:
+      - "&7Teleport to the Overworld" # Description shown when hovering
+    actions:
+      - "[playercommand] rtp world"
+      - "[title] &aTeleporting...;&7To the Overworld"
+      - "[sound] BLOCK_PORTAL_TRAVEL"
+  world_nether:
+    slot: 13
+    material: "NETHERRACK"
+    name: "&cNether"
+    lore:
+      - "&7Teleport to the Nether"
+    actions:
+      - "[playercommand] rtp world_nether"
+      - "[sound] BLOCK_PORTAL_TRAVEL"
+
+  world_the_end:
+    slot: 15
+    material: "END_STONE"
+    name: "&5The End"
+    lore:
+      - "&7Teleport to the End"
+    actions:
+      - "[playercommand] rtp world_the_end"
+      - "[sound] BLOCK_PORTAL_TRAVEL"

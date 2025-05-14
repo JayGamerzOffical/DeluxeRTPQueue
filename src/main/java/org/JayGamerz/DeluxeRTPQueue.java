@@ -1,224 +1,423 @@
 package org.JayGamerz;
 
 import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Sound;
-import org.bukkit.World;
+import org.JayGamerz.commands.RTPQueueCommand;
+import org.JayGamerz.hooks.DeluxeRTPPlaceholder;
+import org.JayGamerz.listeners.PlayerListener;
+import org.JayGamerz.listeners.ShearsRegionSelectorListener;
+import org.JayGamerz.managers.*;
+import org.JayGamerz.utils.SmallTextConverter;
+import org.bukkit.*;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
+import java.io.File;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ThreadLocalRandom;
 
-public  class DeluxeRTPQueue extends JavaPlugin {
-    final List<int[]> deltas = new ArrayList<>();
-public static DeluxeRTPQueue instance;
-
-    private List<UUID> queue = new ArrayList<>();
-    private int timerTaskId = -1;
+public class DeluxeRTPQueue extends JavaPlugin {
+    private static DeluxeRTPQueue instance;
+    public final Map<String, Queue<Location>> preloadedLocations = new ConcurrentHashMap<>();
+    public Map<String, Map<UUID, Long>> worldQueues = new HashMap<>();
+    public String prefix;
+    public boolean smallTextEnabled;
+    public boolean debug;
+    public boolean actionBarMessageEnabled;
+    public boolean soundsEnabled;
+    public boolean levitationEffectEnabled;
+    public int levitationEffectDuration;
+    public List<String> restrictedBlocks;
+    public boolean adjustFacingEnabled;
+    private boolean actionTaskEnabled;
     private MenuManager menuManager;
-    public Config config;
+    private RTPQueueCommand queueCommand;
+    private SelectionManager selectionManager;
+    private AreaManager areaManager;
+    private AreaQueueManager areaQueueManager;
+    private YamlConfiguration messagesConfig;
+    private File messagesFile;
+
+    public static Plugin getPlugin() {
+        return getInstance();
+    }
+
+    public static DeluxeRTPQueue getInstance() {
+        return instance;
+    }
+
+
+    public boolean isActionTaskEnabled() {
+        return actionTaskEnabled;
+    }
+
+
+    public MenuManager getMenuManager() {
+        return menuManager;
+    }
+
+    public AreaQueueManager getAreaQueueManager() {
+        return areaQueueManager;
+    }
+
+    public boolean isDebug() {
+        return debug;
+    }
 
     @Override
     public void onEnable() {
-        instance=this;
-        initializeDeltas();
+        instance = this;
         saveDefaultConfig();
-        reloadConfig();
-this.config = new Config (this.getConfig ());
+        loadMessages();
+        loadFields();
         this.menuManager = new MenuManager(this);
+        selectionManager = new SelectionManager();
+        areaManager = new AreaManager(this);
+        // Register command executors
+        queueCommand = new RTPQueueCommand(this, menuManager);
+        getCommand("rtpqueue").setExecutor(queueCommand);
+        getCommand("rtpqueue").setTabCompleter(queueCommand);
 
-        getCommand("rtpqueue").setExecutor(new RTPQueueCommand(this, menuManager));
-        getCommand("rtpreload").setExecutor(new RTPReloadCommand(this));
-        Bukkit.getPluginManager().registerEvents(new GUIListener(menuManager), this);
+        // Register events
+        Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new ShearsRegionSelectorListener(selectionManager), this);
 
+        // Register PlaceholderAPI expansion if available
+        this.areaQueueManager = new AreaQueueManager(this);
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             new DeluxeRTPPlaceholder(this).register();
+            getLogger().info("PlaceholderAPI detected! RTPQueue placeholders successfully registered.");
+        } else {
+            getLogger().warning("PlaceholderAPI not found! Some features may not work as expected.");
+        }
+
+        startLocationPreloader();
+        if (actionBarMessageEnabled) {
+            startTasks();
         }
     }
 
-    public void joinQueue(Player player) {
-        if (!player.hasPermission("deluxertpqueue.join")) {
-            player.sendMessage("§cYou don't have permission to join the queue.");
-            return;
-        }
-        if (queue.size() >= 2) {
-            player.sendMessage(config.getMessages().getQueueFull());
-            return;
-        }
-        if (queue.contains(player.getUniqueId())) {
-            player.sendMessage(config.getMessages().getAlrQueue()); // Assuming this is meant for already in queue
-            return;
-        }
-        queue.add(player.getUniqueId());
-        sendActionBar(player, config.getMessages().getActionBarJoin());
-        if (queue.size() == 1) {
-            sendAnnouncement(player);
-        } else if (queue.size() == 2) {
-           teleportPlayers ();
-        }
-        menuManager.updateGUI();
-    }
-    private void initializeDeltas() {
-        // Add all valid delta combinations (dx, dz) where 3 ≤ distance ≤ 4
-        deltas.addAll(List.of(
-                new int[]{0, 3}, new int[]{0, -3}, new int[]{0, 4}, new int[]{0, -4},
-                new int[]{3, 0}, new int[]{-3, 0}, new int[]{4, 0}, new int[]{-4, 0},
-                new int[]{1, 3}, new int[]{1, -3}, new int[]{-1, 3}, new int[]{-1, -3},
-                new int[]{3, 1}, new int[]{3, -1}, new int[]{-3, 1}, new int[]{-3, -1},
-                new int[]{2, 3}, new int[]{2, -3}, new int[]{-2, 3}, new int[]{-2, -3},
-                new int[]{3, 2}, new int[]{3, -2}, new int[]{-3, 2}, new int[]{-3, -2}
-        ));
+    public void loadFields() {
+        this.prefix = messagesConfig.getString("prefix", "&e[RTP Queue] &7 >> ");
+        this.debug = getConfig().getBoolean("debug", false);
+        this.soundsEnabled = getConfig().getBoolean("sounds-enabled", true);
+        this.restrictedBlocks = getConfig().getStringList("restricted-blocks");
+        this.adjustFacingEnabled = getConfig().getBoolean("adjust-face", true);
+        this.levitationEffectDuration = getConfig().getInt("levitation-effect-duration", 5);
+        this.actionBarMessageEnabled = getConfig().getBoolean("action-bar-enabled", true);
+        this.levitationEffectEnabled = getConfig().getBoolean("levitation-effect-enabled", true);
+        this.smallTextEnabled = this.getConfig().getBoolean("small-text-enabled", true);
     }
 
-    public void leaveQueue(Player player) {
-        queue.remove(player.getUniqueId());
-        sendActionBar(player, config.getMessages().getActionBarLeave());
-        menuManager.updateGUI();
+    public void startLocationPreloader() {
+        List<String> worlds = getConfig().getStringList("rtp_enabled_worlds");
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                int totalLocations = 0;
+
+                for (String worldName : worlds) {
+                    preloadedLocations.putIfAbsent(worldName, new ConcurrentLinkedQueue<>());
+                    totalLocations += preloadedLocations.get(worldName).size();
+                }
+
+                // Decide delay based on how full the queues are
+                long delay;
+                if (totalLocations < 3) {
+                    delay = 100L;  // fast
+                } else if (totalLocations < 5) {
+                    delay = 150L;  // fast
+                } else if (totalLocations < 10) {
+                    delay = 200L;  // fast
+                } else if (totalLocations < 15) {
+                    delay = 500; // medium
+                } else if (totalLocations < 20) {
+                    delay = 700; // medium
+                } else {
+                    delay = 800; // slow
+                }
+
+
+                for (String worldName : worlds) {
+                    World world = Bukkit.getWorld(worldName);
+                    if (world == null) continue;
+
+                    Queue<Location> queue = preloadedLocations.get(worldName);
+                    if (queue.size() >= 100) continue;
+
+                    int radius = getConfig().getInt("radius", 1000);
+
+                    double x = ThreadLocalRandom.current().nextInt(-radius, radius);
+                    double z = ThreadLocalRandom.current().nextInt(-radius, radius);
+
+                    Bukkit.getScheduler().callSyncMethod(DeluxeRTPQueue.getInstance(), () -> {
+                        Chunk chunk = world.getChunkAt((int) x >> 4, (int) z >> 4);
+                        if (!chunk.isLoaded()) return null;
+
+                        int y = world.getHighestBlockYAt((int) x, (int) z) + 5;
+                        Location loc = new Location(world, x, y, z);
+                        getLogger().info("Preloading " + loc);
+                        if (isSafeLocation(loc.clone().subtract(0, 5, 0))) {
+                            getLogger().info("loaded " + loc);
+                            queue.add(loc);
+                        }
+                        return null;
+                    });
+
+                }
+
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        startLocationPreloader(); // recursive re-run
+                    }
+                }.runTaskLaterAsynchronously(DeluxeRTPQueue.getInstance(), delay); // delay in ticks
+            }
+        }.runTaskAsynchronously(this); // start instantly
     }
 
-    private void sendAnnouncement(Player player) {
-        // Retrieve the raw message from the config and replace the placeholder with the player's name.
-        String rawMessage = config.getMessages().getQueueAnnouncement().replace("%player%", player.getName());
-        // Translate color codes (e.g., &a, &b) into Minecraft color formatting.
-        String coloredMessage = ChatColor.translateAlternateColorCodes('&', rawMessage);
 
-        // Create a TextComponent from the legacy colored message.
-        TextComponent message = new TextComponent(TextComponent.fromLegacyText(coloredMessage));
-
-        // Set a click event so players can join the queue by clicking the message.
-        message.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/rtpqueue join"));
-
-        // Add a hover event with a polished tooltip message.
-        message.setHoverEvent(new HoverEvent(
-                HoverEvent.Action.SHOW_TEXT,
-                new ComponentBuilder (ChatColor.GOLD + "Click here to join the RTP queue!").create()
-        ));
-
-        // Send the formatted announcement to all online players.
-        Bukkit.getOnlinePlayers().forEach(p -> p.spigot().sendMessage(message));
+    public boolean isSafeLocation(Location loc) {
+        Material blockType = loc.getBlock().getType();
+        return !restrictedBlocks.contains(blockType.toString().toUpperCase());
     }
 
+    public void loadMessages() {
+        messagesFile = new File(getDataFolder(), "messages.yml");
+        if (!messagesFile.exists()) {
+            saveResource("messages.yml", false);
+        }
+        messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+    }
 
+    @Override
+    public void onDisable() {
+        areaQueueManager.runningQueues.values().forEach(AreaQueueManager.QueueTask::cancel);
+    }
+
+    public String getMessage(String path) {
+        if (path.contains("messages.")) {
+            String message = messagesConfig.getString(path);
+            if (message == null || message.isEmpty()) {
+                return "Missing message on path: " + path;
+            }
+            return smallTextEnabled ? SmallTextConverter.toSmallCaps(ColorManager.colorize(prefix + ChatColor.translateAlternateColorCodes('&', message))) : ColorManager.colorize(prefix + ChatColor.translateAlternateColorCodes('&', message));
+        } else {
+            String message = messagesConfig.getString("messages." + path);
+            if (message == null || message.isEmpty()) {
+                return "Missing message on path: " + path;
+            }
+            return smallTextEnabled ? SmallTextConverter.toSmallCaps(ColorManager.colorize(prefix + ChatColor.translateAlternateColorCodes('&', message))) : ColorManager.colorize(prefix + ChatColor.translateAlternateColorCodes('&', message));
+        }
+    }
+
+    public String getMessage(String path, String arenaName) {
+
+        String message = messagesConfig.getString(path);
+        if (message == null || message.isEmpty()) {
+            return "Missing message on path: " + path;
+        }
+        return smallTextEnabled ? SmallTextConverter.toSmallCaps(ColorManager.colorize(prefix + ChatColor.translateAlternateColorCodes('&', (message).replaceAll("%area%", arenaName)))) :
+                ColorManager.colorize(prefix + ChatColor.translateAlternateColorCodes('&', (message).replaceAll("%area%", arenaName)));
+
+    }
+
+    public String getMessage(String path, String time, boolean op) {
+
+        String message = messagesConfig.getString(path);
+        if (message == null || message.isEmpty()) {
+            return "Missing message on path: " + path;
+        }
+        return smallTextEnabled ? SmallTextConverter.toSmallCaps(ChatColor.translateAlternateColorCodes('&', (message).replaceAll("%time%", String.valueOf(time)))) :
+                ChatColor.translateAlternateColorCodes('&', (message).replaceAll("%time%", String.valueOf(time)));
+
+    }
+
+    private void updateActionBar() {
+        for (Map.Entry<String, Map<UUID, Long>> worldEntry : this.worldQueues.entrySet()) {
+            Map<UUID, Long> queue = worldEntry.getValue();
+
+            for (Map.Entry<UUID, Long> entry : queue.entrySet()) {
+                UUID playerId = entry.getKey();
+                long joinTime = entry.getValue();
+                Player player = Bukkit.getPlayer(playerId);
+
+                if (player != null && player.isOnline()) {
+                    long elapsedMillis = System.currentTimeMillis() - joinTime;
+                    long elapsedSeconds = elapsedMillis / 1000L;
+                    long minutes = elapsedSeconds / 60L;
+                    long seconds = elapsedSeconds % 60L;
+                    String timeString = String.format("§a[%02d:%02d]", minutes, seconds);
+
+                    String message = getMessage("messages.join_queue_time", " " + timeString, true);
+                    sendActionBar(player, ColorManager.colorize(message));
+                    if (soundsEnabled) {
+                        try {
+                            player.playSound(player.getLocation(), Sound.valueOf("NOTE_PLING"), 1F, 1F);
+                        } catch (Throwable e) {
+                            player.playSound(player.getLocation(), Sound.valueOf("BLOCK_NOTE_BLOCK_PLING"), 1F, 1F);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 
     public void sendActionBar(Player player, String message) {
-        if (player == null || !player.isOnline()) return;
-        player.spigot().sendMessage( new TextComponent(ChatColor.translateAlternateColorCodes('&', (message))));
+        try {
+            player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+                    new net.md_5.bungee.api.chat.TextComponent(message));
+        } catch (Throwable e) {
+            player.sendTitle("", message);
+        }
     }
-    private void adjustFacing(Player player, Location target) {
+
+    public void startTasks() {
+        new BukkitRunnable() {
+            public void run() {
+                if (Bukkit.getOnlinePlayers().isEmpty()) {
+                    actionTaskEnabled = false;
+                    cancel();
+                    return;
+                }
+                actionTaskEnabled = true;
+                updateActionBar();
+            }
+        }.runTaskTimer(this, 0L, 20L);
+    }
+
+    public void checkQueue(String worldName) {
+        Map<UUID, Long> queue = worldQueues.get(worldName);
+        if (queue == null || queue.size() < 2) return;
+
+        UUID[] playersArray = queue.keySet().toArray(new UUID[0]);
+        UUID player1 = playersArray[0];
+        UUID player2 = playersArray[1];
+        queue.remove(player1);
+        queue.remove(player2);
+
+        Player p1 = Bukkit.getPlayer(player1);
+        Player p2 = Bukkit.getPlayer(player2);
+        if (p1 != null && p2 != null) {
+            teleportPlayers(p1, p2, worldName); // Also pass worldName here
+        }
+    }
+
+    private void teleportPlayers(Player player1, Player player2, String worldName) {
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            player1.sendMessage(getMessage("noLocationFound"));
+            player2.sendMessage(getMessage("noLocationFound"));
+            getLogger().warning("World '" + worldName + "' not found!");
+            return;
+        }
+
+        Queue<Location> queue = preloadedLocations.getOrDefault(worldName, new ConcurrentLinkedQueue<>());
+        if (queue.size() < 2) return;
+
+        Location loc1 = queue.poll();
+        Location loc2 = loc1.clone().add(10, 0, 0);
+
+        if (!isSafeLocation(loc2)) {
+            loc2 = queue.poll();
+            if (loc2 == null) {
+                player1.sendMessage(getMessage("teleportError"));
+                player2.sendMessage(getMessage("teleportError"));
+                return;
+            }
+        }
+
+        loc1.add(0, 4, 0);
+        loc2.add(0, 4, 0);
+
+        if (isDebug())
+            getLogger().info("Teleporting " + player1.getName() + " to " + loc1 + " and " + player2.getName() + " to " + loc2);
+
+        if (player1.teleport(loc1) && player2.teleport(loc2)) {
+            if (levitationEffectEnabled) {
+                try {
+                    player1.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, levitationEffectDuration * 20, getConfig().getInt("levitation-effect-amplifier", 0)));
+                    player2.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, levitationEffectDuration * 20, getConfig().getInt("levitation-effect-amplifier", 0)));
+                } catch (Throwable e) {
+                    fakeLevitation(player1, levitationEffectDuration * 20, getConfig().getDouble("levitation-effect-amplifier", 0.1) * 0.1);
+                    fakeLevitation(player2, levitationEffectDuration * 20, getConfig().getDouble("levitation-effect-amplifier", 0.1) * 0.1);
+                }
+            }
+            if (adjustFacingEnabled) {
+                adjustFacing(player1, loc2);
+                adjustFacing(player2, loc1);
+            }
+            if (soundsEnabled) {
+                try {
+                    player1.playSound(player1.getLocation(), Sound.valueOf("ENTITY_ENDERMAN_TELEPORT"), 1F, 1F);
+                    player2.playSound(player2.getLocation(), Sound.valueOf("ENTITY_ENDERMAN_TELEPORT"), 1F, 1F);
+                } catch (Throwable e) {
+                    player1.playSound(player1.getLocation(), Sound.valueOf("ENDERMAN_TELEPORT"), 1F, 1F);
+                    player2.playSound(player2.getLocation(), Sound.valueOf("ENDERMAN_TELEPORT"), 1F, 1F);
+                }
+            }
+            player1.sendMessage(getMessage("teleportMessage"));
+            player2.sendMessage(getMessage("teleportMessage"));
+        } else {
+            player1.sendMessage(getMessage("teleportError"));
+            player2.sendMessage(getMessage("teleportError"));
+            if (isDebug()) getLogger().warning("Teleport failed for one or both players.");
+        }
+    }
+
+
+    public void fakeLevitation(Player player, int durationTicks, double strength) {
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= durationTicks || player.isDead() || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+                // Apply small upward velocity
+                Vector velocity = player.getVelocity();
+                velocity.setY(strength);
+                player.setVelocity(velocity);
+
+                ticks += 5; // running every 5 ticks
+            }
+        }.runTaskTimer(this, 0L, 5L); // run every 5 ticks (~0.25 second)
+    }
+
+    public void adjustFacing(Player player, Location target) {
         Location playerLoc = player.getLocation();
         double dx = target.getX() - playerLoc.getX();
         double dz = target.getZ() - playerLoc.getZ();
-        float yaw = (float)Math.toDegrees(Math.atan2(-dx, dz));
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
         if (yaw < 0.0F) {
             yaw += 360.0F;
         }
-
         float pitch = playerLoc.getPitch();
         playerLoc.setYaw(yaw);
         playerLoc.setPitch(pitch);
         player.teleport(playerLoc);
     }
-    private void teleportPlayers() {
-        if (queue.size() < 2) return;
 
-        Player p1 = Bukkit.getPlayer(queue.get(0));
-        Player p2 = Bukkit.getPlayer(queue.get(1));
-
-        if (p1 == null || p2 == null) return;
-
-        new BukkitRunnable() {
-            int timeLeft = 5;
-
-            @Override
-            public void run() {
-                if (timeLeft <= 0) {
-                    // Clear queue and update GUI immediately
-                    DeluxeRTPQueue.getInstance().getQueue().clear();
-                    menuManager.updateGUI();
-                    // Create a new TeleportManager instance
-                    TeleportManager teleportManager = new TeleportManager(DeluxeRTPQueue.this);
-
-                    // Call the asynchronous method with a callback
-                    teleportManager.findValidLocationsAsync(
-                            Bukkit.getWorld(getConfigManager().getDefaultWorld()),
-                            locations -> {
-                                if (locations == null) {
-                                    p1.sendMessage(ChatColor.RED + "Failed to find valid locations after "
-                                            + getConfigManager().getMaxAttempts() + " attempts!");
-                                    p2.sendMessage(ChatColor.RED + "Failed to find valid locations after "
-                                            + getConfigManager().getMaxAttempts() + " attempts!");
-                                } else {
-                                    p1.teleport(locations[0].add (0,2,0));
-                                    p2.teleport(locations[1].add (0,2,0));
-                                    adjustFacing (p1,p2.getLocation ());
-                                    adjustFacing (p2,p1.getLocation ());
-                                    playTeleportSound(p1);
-                                    playTeleportSound(p2);
-                                }
-                            }
-                    );
-
-                    cancel();
-                } else {
-                    playTimerSound(p1);
-                    String countdownMessage = config.getMessages().getTeleportCountdown()
-                            .replace("%time%", String.valueOf(timeLeft));
-                    sendActionBar(p1, countdownMessage);
-                    sendActionBar(p2, countdownMessage);
-                    timeLeft--;
-                }
-            }
-        }.runTaskTimer(this, 0L, 20L);
+    public AreaManager getAreaManager() {
+        return areaManager;
     }
 
-
-    private static DeluxeRTPQueue getInstance() {
-        return instance;
+    public SelectionManager getSelectionManager() {
+        return selectionManager;
     }
 
-    private void playTeleportSound(Player player) {
-        try{
-            player.playSound (player.getLocation ( ), Sound.valueOf ( "ENTITY_PLAYER_LEVELUP" ), 1.0F, 1.0F);
-        }catch(Exception e){
-            player.playSound (player.getLocation ( ), Sound.valueOf ("LEVEL_UP"), 1.0F, 1.0F);
-        }
-    }
-    private void playTimerSound(Player player) {
-        try{
-            player.playSound (player.getLocation ( ), Sound.valueOf ( "BLOCK_NOTE_BLOCK_PLING" ), 1.0F, 1.0F);
-        }catch(Exception e){
-            player.playSound (player.getLocation ( ), Sound.valueOf ("NOTE_PLING"), 1.0F, 1.0F);
-        }
+    public String getPrefix() {
+        return prefix;
     }
 
-    @Override
-    public void onDisable() {
-        if (timerTaskId != -1) {
-            Bukkit.getScheduler().cancelTask(timerTaskId);
-            timerTaskId = -1;
-        }
-        queue.clear();
-        menuManager.updateGUI();
-    }
-
-    public int getQueueSize() {
-        return queue.size();
-    }
-
-
-    public List<UUID> getQueue() {
-        return queue;
-    }
-
-    public Config getConfigManager() {
-        return config;
-    }
 }
